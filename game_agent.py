@@ -266,12 +266,11 @@ class CustomPlayer:
                 to pass the project unit tests; you cannot call any other
                 evaluation function directly.
         """
-        if self.time_left() < self.threshold:
-            raise Timeout()
         LOG.debug("alphabeta vvvvv\n%s %d α:%d β:%d\n%s^^^^^^",
                   "max" if maximizing_player else "min",
                   alpha, beta,
                   depth, game.to_string())
+
         if self.time_left() < self.threshold:
             raise Timeout()
         if depth == 0 or not game.get_legal_moves():
@@ -280,26 +279,19 @@ class CustomPlayer:
         best = float("-inf") if maximizing_player  else float("inf")
         bestof = max if maximizing_player else min
         bestmove = (-1, -1)
-        if alpha > beta:
-            return best, bestmove
         for move in game.get_legal_moves():
-            if alpha > beta:
-                break
             value, _ = self.alphabeta(game.forecast_move(move), depth-1,
                                       alpha, beta, not maximizing_player)
             best = bestof([value, best])
             if best == value:
                 bestmove = move
-
-            if maximizing_player:
-                if best > alpha:
-                    alpha = best
-                if best >= beta:
-                    break
-            else:
-                if best < beta:
-                    beta = best
-                if best <= alpha:
-                    break
+                if maximizing_player:
+                    alpha = bestof(alpha, best)
+                    if best >= beta:
+                        break
+                else:
+                    beta = bestof(beta, best)
+                    if best <= alpha:
+                        break
         return best, bestmove
 #pylint: enable-msg=too-many-arguments
