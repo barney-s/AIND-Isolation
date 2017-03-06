@@ -11,7 +11,7 @@ import logging
 import sys
 
 LOG = logging.getLogger()
-LOG.level = logging.INFO
+LOG.level = logging.ERROR #< INFO < DEBUG
 STREAM_HANDLER = logging.StreamHandler(sys.stdout)
 LOG.addHandler(STREAM_HANDLER)
 
@@ -154,7 +154,7 @@ class CustomPlayer:
         # if no legal moves return
         move = (-1, -1)
         if not legal_moves:
-            LOG.error("no legal moves:\n%s", game.to_string())
+            LOG.info("no legal moves:\n%s", game.to_string())
             return move
 
         # consult playbook
@@ -174,7 +174,7 @@ class CustomPlayer:
                 move = _move(self.search_depth)
         except Timeout:
             # Handle any actions required at timeout, if necessary
-            LOG.error("Timedout waiting for search result:\n%s", game.to_string())
+            LOG.info("Timedout waiting for search result:\n%s", game.to_string())
         LOG.debug("returning move: %s:\n%s", move, game.to_string())
         return move
 
@@ -272,4 +272,34 @@ class CustomPlayer:
                   "max" if maximizing_player else "min",
                   alpha, beta,
                   depth, game.to_string())
+        if self.time_left() < self.threshold:
+            raise Timeout()
+        if depth == 0 or not game.get_legal_moves():
+            return self.score(game, self), None
+
+        best = float("-inf") if maximizing_player  else float("inf")
+        bestof = max if maximizing_player else min
+        bestmove = (-1, -1)
+        if alpha > beta:
+            return best, bestmove
+        for move in game.get_legal_moves():
+            if alpha > beta:
+                break
+            value, _ = self.alphabeta(game.forecast_move(move), depth-1,
+                                      alpha, beta, not maximizing_player)
+            best = bestof([value, best])
+            if best == value:
+                bestmove = move
+
+            if maximizing_player:
+                if best > alpha:
+                    alpha = best
+                if best >= beta:
+                    break
+            else:
+                if best < beta:
+                    beta = best
+                if best <= alpha:
+                    break
+        return best, bestmove
 #pylint: enable-msg=too-many-arguments
