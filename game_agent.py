@@ -213,9 +213,8 @@ class CustomPlayer:
             raise Timeout()
         if depth == 0 or not game.get_legal_moves():
             return self.score(game, self), None
-        depth -= 1
 
-        ply = [(self.minimax(game.forecast_move(move), depth, not maximizing_player)[0], move) \
+        ply = [(self.minimax(game.forecast_move(move), depth-1, not maximizing_player)[0], move) \
                for move in game.get_legal_moves()]
         log.debug("minimax %d %d.%s", depth, len(ply), ply)
         if maximizing_player:
