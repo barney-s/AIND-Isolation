@@ -10,10 +10,10 @@ relative strength using tournament.py and include the results in your report.
 import logging
 import sys
 
-log = logging.getLogger()
-log.level = logging.INFO
-stream_handler = logging.StreamHandler(sys.stdout)
-log.addHandler(stream_handler)
+LOG = logging.getLogger()
+LOG.level = logging.INFO
+STREAM_HANDLER = logging.StreamHandler(sys.stdout)
+LOG.addHandler(STREAM_HANDLER)
 
 
 class Timeout(Exception):
@@ -44,17 +44,17 @@ def custom_score(game, player):
         The heuristic value of the current game state to the specified player.
     """
     if game.is_loser(player):
-        log.info("%s LOST", player.__class__)
+        LOG.info("%s LOST", player.__class__)
         return float("-inf")
 
     if game.is_winner(player):
-        log.info("%s WON", player.__class__)
+        LOG.info("%s WON", player.__class__)
         return float("inf")
 
     own_moves = len(game.get_legal_moves(player))
     opp_moves = len(game.get_legal_moves(game.get_opponent(player)))
     score = own_moves - opp_moves
-    log.debug("%s score:", score)
+    LOG.debug("%s score:", score)
     return float(score)
 
 
@@ -88,19 +88,22 @@ class CustomPlayer:
         timer expires.
     """
 
+#pylint: disable-msg=too-many-arguments
     def __init__(self, search_depth=3, score_fn=custom_score,
-                 iterative=True, method='minimax', timeout=10.):
+                 iterative=True, method='minimax', threshold=10.):
         self.search_depth = search_depth
         self.iterative = iterative
         self.score = score_fn
         self.method = method
         self.time_left = None
-        self.TIMER_THRESHOLD = timeout
+        self.playbook = lambda x, y: y
+        self.threshold = threshold
+#pylint: enable-msg=too-many-arguments
 
     def playbook_move(self, game, legal_moves):
-        """TODO: implement a playbook for starting
+        """playbook for starting
         """
-        return legal_moves
+        return self.playbook(game, legal_moves)
 
     def get_move(self, game, legal_moves, time_left):
         """Search for the best move from the available legal moves and return a
@@ -145,19 +148,19 @@ class CustomPlayer:
                 _, move = self.alphabeta(game, depth)
             return move
 
-        log.debug("get_move: \n%s\n%s", game.to_string(), legal_moves)
+        LOG.debug("get_move: \n%s\n%s", game.to_string(), legal_moves)
         self.time_left = time_left
 
         # if no legal moves return
         move = (-1, -1)
         if not legal_moves:
-            log.error("no legal moves:\n%s", game.to_string())
+            LOG.error("no legal moves:\n%s", game.to_string())
             return move
 
         # consult playbook
         moves = self.playbook_move(game, legal_moves)
         if len(moves) == 1:
-            log.debug("returning move: %s:\n%s", moves[0], game.to_string())
+            LOG.debug("returning move: %s:\n%s", moves[0], game.to_string())
             return moves[0]
 
         try:
@@ -165,14 +168,14 @@ class CustomPlayer:
                 depth = 1
                 while True:
                     move = _move(depth)
-                    log.debug("iterative deepening %d move: %s", depth, move)
+                    LOG.debug("iterative deepening %d move: %s", depth, move)
                     depth += 1
             else:
                 move = _move(self.search_depth)
         except Timeout:
             # Handle any actions required at timeout, if necessary
-            log.error("Timedout waiting for search result:\n%s", game.to_string())
-        log.debug("returning move: %s:\n%s", move, game.to_string())
+            LOG.error("Timedout waiting for search result:\n%s", game.to_string())
+        LOG.debug("returning move: %s:\n%s", move, game.to_string())
         return move
 
     def minimax(self, game, depth, maximizing_player=True):
@@ -206,23 +209,26 @@ class CustomPlayer:
                 to pass the project unit tests; you cannot call any other
                 evaluation function directly.
         """
-        log.debug("vvvvv\n%s %d\n%s^^^^^^",
+        LOG.debug("minimax vvvvv\n%s %d\n%s^^^^^^",
                   "max" if maximizing_player else "min",
                   depth, game.to_string())
-        if self.time_left() < self.TIMER_THRESHOLD:
+        if self.time_left() < self.threshold:
             raise Timeout()
         if depth == 0 or not game.get_legal_moves():
             return self.score(game, self), None
 
-        ply = [(self.minimax(game.forecast_move(move), depth-1, not maximizing_player)[0], move) \
+        ply = [(self.minimax(game.forecast_move(move), \
+                depth-1, not maximizing_player)[0], move) \
                for move in game.get_legal_moves()]
-        log.debug("minimax %d %d.%s", depth, len(ply), ply)
+        LOG.debug("minimax %d %d.%s", depth, len(ply), ply)
         if maximizing_player:
             return max(ply, key=lambda x: x[0])
         else:
             return min(ply, key=lambda x: x[0])
 
-    def alphabeta(self, game, depth, alpha=float("-inf"), beta=float("inf"), maximizing_player=True):
+#pylint: disable-msg=too-many-arguments
+    def alphabeta(self, game, depth, alpha=float("-inf"), beta=float("inf"),
+                  maximizing_player=True):
         """Implement minimax search with alpha-beta pruning as described in the
         lectures.
 
@@ -260,8 +266,10 @@ class CustomPlayer:
                 to pass the project unit tests; you cannot call any other
                 evaluation function directly.
         """
-        if self.time_left() < self.TIMER_THRESHOLD:
+        if self.time_left() < self.threshold:
             raise Timeout()
-
-        # TODO: finish this function!
-        raise NotImplementedError
+        LOG.debug("alphabeta vvvvv\n%s %d α:%d β:%d\n%s^^^^^^",
+                  "max" if maximizing_player else "min",
+                  alpha, beta,
+                  depth, game.to_string())
+#pylint: enable-msg=too-many-arguments
