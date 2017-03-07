@@ -6,12 +6,13 @@ augment the test suite with your own test cases to further test your code.
 You must test your agent's strength against a set of agents with known
 relative strength using tournament.py and include the results in your report.
 """
-#import random
+from random import randint
 import logging
 import sys
+import math
 
 LOG = logging.getLogger()
-LOG.level = logging.ERROR #< INFO < DEBUG
+LOG.level = logging.ERROR #ERROR < INFO < DEBUG
 STREAM_HANDLER = logging.StreamHandler(sys.stdout)
 LOG.addHandler(STREAM_HANDLER)
 
@@ -43,6 +44,7 @@ def custom_score(game, player):
     float
         The heuristic value of the current game state to the specified player.
     """
+
     if game.is_loser(player):
         LOG.info("%s LOST", player.__class__)
         return float("-inf")
@@ -51,10 +53,56 @@ def custom_score(game, player):
         LOG.info("%s WON", player.__class__)
         return float("inf")
 
-    own_moves = len(game.get_legal_moves(player))
-    opp_moves = len(game.get_legal_moves(game.get_opponent(player)))
-    score = own_moves - opp_moves
-    LOG.debug("%s score:", score)
+    my_pos = game.get_player_location(player)
+    op_pos = game.get_player_location(game.get_opponent(player))
+    center = (game.width/2, game.height/2)
+
+    LOG.debug("\ngetting custom heuristics:\n%s\nplayer: %s opponent: %s\n",
+              game.to_string(), my_pos, op_pos)
+
+    def _distance(point_x, point_y):
+        return math.sqrt((point_x[0]-point_y[0])**2 + (point_x[1]-point_y[1])**2)
+
+    def _distance_to_center(location):
+        return _distance(location, center)
+
+    def delta_move_heuristic():
+        """move heuristic calculation. gets the delta between moves
+        """
+        own_moves = len(game.get_legal_moves(player))
+        opp_moves = len(game.get_legal_moves(game.get_opponent(player)))
+        score = own_moves - 2*opp_moves
+        LOG.debug("move_heuristic: %d", score)
+        return score
+
+    def open_move_heuristic():
+        """number of open positions allowed to move for this player
+        """
+        return len(game.get_legal_moves(player))
+
+    def delta_central_heuristic():
+        """prefer moves to center
+        """
+        score = _distance_to_center(op_pos) - _distance_to_center(my_pos)
+        LOG.debug("delta_central_distance_heuristic: %d", score)
+        return score
+
+    def central_distance_heuristic():
+        """prefer moves to center
+        """
+        score = _distance_to_center(my_pos)
+        LOG.debug("central_distance_heuristic: %d", score)
+        return score
+
+    # heustics:
+    heuristics = [
+        (delta_move_heuristic, 1),
+        (open_move_heuristic, 2),
+        (central_distance_heuristic, -1),
+        (delta_central_heuristic, 1)
+        ]
+    score = sum([h[1]*h[0]() for h in heuristics])
+    LOG.debug(score)
     return float(score)
 
 
@@ -221,10 +269,11 @@ class CustomPlayer:
                 depth-1, not maximizing_player)[0], move) \
                for move in game.get_legal_moves()]
         LOG.debug("minimax %d %d.%s", depth, len(ply), ply)
-        if maximizing_player:
-            return max(ply, key=lambda x: x[0])
-        else:
-            return min(ply, key=lambda x: x[0])
+        bestof = max if maximizing_player else min
+        best = bestof(ply, key=lambda x: x[0])
+        equivalents = [m for m in ply if m[0] == best[0]]
+        return equivalents[randint(0, len(equivalents) - 1)]
+        #return best
 
 #pylint: disable-msg=too-many-arguments
     def alphabeta(self, game, depth, alpha=float("-inf"), beta=float("inf"),
@@ -277,14 +326,16 @@ class CustomPlayer:
             return self.score(game, self), None
 
         best = float("-inf") if maximizing_player  else float("inf")
+        #bestmove = (-1, -1)
         bestof = max if maximizing_player else min
-        bestmove = (-1, -1)
+        ply = []
         for move in game.get_legal_moves():
             value, _ = self.alphabeta(game.forecast_move(move), depth-1,
                                       alpha, beta, not maximizing_player)
+            ply.append((value, move))
             best = bestof([value, best])
             if best == value:
-                bestmove = move
+                #bestmove = move
                 if maximizing_player:
                     alpha = bestof(alpha, best)
                     if best >= beta:
@@ -293,5 +344,8 @@ class CustomPlayer:
                     beta = bestof(beta, best)
                     if best <= alpha:
                         break
-        return best, bestmove
+        equivalents = [m for m in ply if m[0] == best]
+        return equivalents[randint(0, len(equivalents) - 1)]
+        #return equivalents[randint(0, len(equivalents) - 1)]
+        #return best, bestmove
 #pylint: enable-msg=too-many-arguments
