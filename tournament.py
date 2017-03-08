@@ -22,6 +22,8 @@ initiative in the second match with agentB at (5, 2) as player 1 and agentA at
 import itertools
 import random
 import warnings
+import os
+import pickle
 
 from collections import namedtuple
 
@@ -56,14 +58,19 @@ same opponents.
 
 Agent = namedtuple("Agent", ["player", "name"])
 
+game_history=[]
 
-def play_match(player1, player2):
+def play_match(agent1, agent2):
     """
     Play a "fair" set of matches between two agents by playing two games
     between the players, forcing each agent to play from randomly selected
     positions. This should control for differences in outcome resulting from
     advantage due to starting position on the board.
     """
+    player1 = agent1.player
+    player2 = agent2.player
+    player1.name = agent1.name
+    player2.name = agent2.name
     num_wins = {player1: 0, player2: 0}
     num_timeouts = {player1: 0, player2: 0}
     num_invalid_moves = {player1: 0, player2: 0}
@@ -77,8 +84,13 @@ def play_match(player1, player2):
 
     # play both games and tally the results
     for game in games:
-        winner, _, termination = game.play(time_limit=TIME_LIMIT)
-
+        winner, history, termination = game.play(time_limit=TIME_LIMIT)
+        game_history.append({
+              "p1": game.__player_1__.name, 
+              "p2": game.__player_2__.name, 
+              "winner": winner.name, 
+              "moves": history, 
+              "loss_reason": termination})
         if player1 == winner:
             num_wins[player1] += 1
 
@@ -120,11 +132,11 @@ def play_round(agents, num_matches):
         print("  Match {}: {!s:^11} vs {!s:^11}".format(idx + 1, *names), end=' ')
 
         # Each player takes a turn going first
-        for p1, p2 in itertools.permutations((agent_1.player, agent_2.player)):
+        for p1, p2 in itertools.permutations((agent_1, agent_2)):
             for _ in range(num_matches):
                 score_1, score_2 = play_match(p1, p2)
-                counts[p1] += score_1
-                counts[p2] += score_2
+                counts[p1.player] += score_1
+                counts[p2.player] += score_2
                 total += score_1 + score_2
 
         wins += counts[agent_1.player]
@@ -160,7 +172,7 @@ def main():
     # systems; i.e., the performance of the student agent is considered
     # relative to the performance of the ID_Improved agent to account for
     # faster or slower computers.
-    test_agents = [Agent(CustomPlayer(score_fn=improved_score, **CUSTOM_ARGS), "ID_Improved"),
+    test_agents = [#Agent(CustomPlayer(score_fn=improved_score, **CUSTOM_ARGS), "ID_Improved"),
                    Agent(CustomPlayer(score_fn=custom_score, **CUSTOM_ARGS), "Student")]
 
     print(DESCRIPTION)
@@ -178,5 +190,14 @@ def main():
         print("{!s:<15}{:>10.2f}%".format(agentUT.name, win_ratio))
 
 
+def save_moves(games):
+    """ save the game info for analysis later on
+    """
+    i = 0
+    while os.path.exists("run%s.dat" % i):
+        i += 1
+    pickle.dump(games, open("run%s.dat"%i, "wb"))
+
 if __name__ == "__main__":
     main()
+    save_moves(game_history)

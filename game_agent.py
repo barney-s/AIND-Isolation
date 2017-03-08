@@ -6,13 +6,15 @@ augment the test suite with your own test cases to further test your code.
 You must test your agent's strength against a set of agents with known
 relative strength using tournament.py and include the results in your report.
 """
-from random import randint
+#from random import randint
 import logging
 import sys
 import math
+import os
+import pickle
 
 LOG = logging.getLogger()
-LOG.level = logging.ERROR #ERROR < INFO < DEBUG
+LOG.level = logging.DEBUG #ERROR < INFO < DEBUG
 STREAM_HANDLER = logging.StreamHandler(sys.stdout)
 LOG.addHandler(STREAM_HANDLER)
 
@@ -21,6 +23,8 @@ class Timeout(Exception):
     """Subclass base exception for code clarity."""
     pass
 
+
+#move_score = pickle.load(open("move_score.dat", "rb"))
 
 def custom_score(game, player):
     """Calculate the heuristic value of a game state from the point of view
@@ -46,19 +50,19 @@ def custom_score(game, player):
     """
 
     if game.is_loser(player):
-        LOG.info("%s LOST", player.__class__)
+        #LOG.info("%s LOST", player.__class__)
         return float("-inf")
 
     if game.is_winner(player):
-        LOG.info("%s WON", player.__class__)
+        #LOG.info("%s WON", player.__class__)
         return float("inf")
 
     my_pos = game.get_player_location(player)
     op_pos = game.get_player_location(game.get_opponent(player))
     center = (game.width/2, game.height/2)
 
-    LOG.debug("\ngetting custom heuristics:\n%s\nplayer: %s opponent: %s\n",
-              game.to_string(), my_pos, op_pos)
+    #LOG.debug("\ngetting custom heuristics:\n%s\nplayer: %s opponent: %s\n",
+    #          game.to_string(), my_pos, op_pos)
 
     def _distance(point_x, point_y):
         return math.sqrt((point_x[0]-point_y[0])**2 + (point_x[1]-point_y[1])**2)
@@ -66,43 +70,70 @@ def custom_score(game, player):
     def _distance_to_center(location):
         return _distance(location, center)
 
-    def delta_move_heuristic():
+    def move_score_heuristic(factor):
+        """move score heuristic - based on run data
+        """
+        if not factor:
+            return factor
+
+        score = 0
+        idx = 0
+        turn = game.__player_1__ == player
+        for move in game.__history__:
+            if turn:
+                score += move_score[idx][move[0]][move[1]]
+            turn = not turn
+            idx += 1
+            if idx > 2:
+                break
+        return factor*score
+
+    def delta_move_heuristic(factor):
         """move heuristic calculation. gets the delta between moves
         """
+        if not factor:
+            return factor
         own_moves = len(game.get_legal_moves(player))
         opp_moves = len(game.get_legal_moves(game.get_opponent(player)))
         score = own_moves - 2*opp_moves
-        LOG.debug("move_heuristic: %d", score)
-        return score
+        #LOG.debug("move_heuristic: %d", score)
+        return factor*score
 
-    def open_move_heuristic():
+    def open_move_heuristic(factor):
         """number of open positions allowed to move for this player
         """
-        return len(game.get_legal_moves(player))
+        if not factor:
+            return factor
+        return factor*len(game.get_legal_moves(player))
 
-    def delta_central_heuristic():
+    def delta_central_heuristic(factor):
         """prefer moves to center
         """
+        if not factor:
+            return factor
         score = _distance_to_center(op_pos) - _distance_to_center(my_pos)
-        LOG.debug("delta_central_distance_heuristic: %d", score)
-        return score
+        #LOG.debug("delta_central_distance_heuristic: %d", score)
+        return factor*score
 
-    def central_distance_heuristic():
+    def central_distance_heuristic(factor):
         """prefer moves to center
         """
+        if not factor:
+            return factor
         score = _distance_to_center(my_pos)
-        LOG.debug("central_distance_heuristic: %d", score)
-        return score
+        #LOG.debug("central_distance_heuristic: %d", score)
+        return factor*score
 
     # heustics:
     heuristics = [
         (delta_move_heuristic, 1),
-        (open_move_heuristic, 2),
+        #(open_move_heuristic, 0),
         (central_distance_heuristic, -1),
-        (delta_central_heuristic, 1)
+        #(delta_central_heuristic, 0),
+        #(move_score_heuristic, 0)
         ]
-    score = sum([h[1]*h[0]() for h in heuristics])
-    LOG.debug(score)
+    score = sum([h[0](h[1]) for h in heuristics])
+    #LOG.debug(score)
     return float(score)
 
 
@@ -144,8 +175,9 @@ class CustomPlayer:
         self.score = score_fn
         self.method = method
         self.time_left = None
-        self.playbook = lambda x, y: y
         self.threshold = threshold
+        self.playbook = lambda x, y: y
+
 #pylint: enable-msg=too-many-arguments
 
     def playbook_move(self, game, legal_moves):
@@ -196,34 +228,36 @@ class CustomPlayer:
                 _, move = self.alphabeta(game, depth)
             return move
 
-        LOG.debug("get_move: \n%s\n%s", game.to_string(), legal_moves)
+        #LOG.debug("get_move: \n%s\n%s", game.to_string(), legal_moves)
         self.time_left = time_left
 
         # if no legal moves return
         move = (-1, -1)
         if not legal_moves:
-            LOG.info("no legal moves:\n%s", game.to_string())
+            #LOG.info("no legal moves:\n%s", game.to_string())
             return move
 
         # consult playbook
         moves = self.playbook_move(game, legal_moves)
         if len(moves) == 1:
-            LOG.debug("returning move: %s:\n%s", moves[0], game.to_string())
+            #LOG.debug("returning move: %s:\n%s", moves[0], game.to_string())
             return moves[0]
 
+        depth = 1
         try:
             if self.iterative:
-                depth = 1
                 while True:
                     move = _move(depth)
-                    LOG.debug("iterative deepening %d move: %s", depth, move)
+                    #LOG.debug("iterative deepening %d move: %s", depth, move)
                     depth += 1
             else:
                 move = _move(self.search_depth)
         except Timeout:
             # Handle any actions required at timeout, if necessary
-            LOG.info("Timedout waiting for search result:\n%s", game.to_string())
-        LOG.debug("returning move: %s:\n%s", move, game.to_string())
+            #LOG.error("Timedout waiting for search result (depth: %d):\n%s",
+            #          depth, game.to_string())
+            pass
+        #LOG.debug("returning move: %s:\n%s", move, game.to_string())
         return move
 
     def minimax(self, game, depth, maximizing_player=True):
@@ -257,9 +291,9 @@ class CustomPlayer:
                 to pass the project unit tests; you cannot call any other
                 evaluation function directly.
         """
-        LOG.debug("minimax vvvvv\n%s %d\n%s^^^^^^",
-                  "max" if maximizing_player else "min",
-                  depth, game.to_string())
+        #LOG.debug("minimax vvvvv\n%s %d\n%s^^^^^^",
+        #          "max" if maximizing_player else "min",
+        #          depth, game.to_string())
         if self.time_left() < self.threshold:
             raise Timeout()
         if depth == 0 or not game.get_legal_moves():
@@ -268,12 +302,12 @@ class CustomPlayer:
         ply = [(self.minimax(game.forecast_move(move), \
                 depth-1, not maximizing_player)[0], move) \
                for move in game.get_legal_moves()]
-        LOG.debug("minimax %d %d.%s", depth, len(ply), ply)
+        #LOG.debug("minimax %d %d.%s", depth, len(ply), ply)
         bestof = max if maximizing_player else min
         best = bestof(ply, key=lambda x: x[0])
-        equivalents = [m for m in ply if m[0] == best[0]]
-        return equivalents[randint(0, len(equivalents) - 1)]
-        #return best
+        #equivalents = [m for m in ply if m[0] == best[0]]
+        #return equivalents[randint(0, len(equivalents) - 1)]
+        return best
 
 #pylint: disable-msg=too-many-arguments
     def alphabeta(self, game, depth, alpha=float("-inf"), beta=float("inf"),
@@ -315,10 +349,10 @@ class CustomPlayer:
                 to pass the project unit tests; you cannot call any other
                 evaluation function directly.
         """
-        LOG.debug("alphabeta vvvvv\n%s %d α:%d β:%d\n%s^^^^^^",
-                  "max" if maximizing_player else "min",
-                  alpha, beta,
-                  depth, game.to_string())
+        #LOG.debug("alphabeta vvvvv\n%s %d α:%d β:%d\n%s^^^^^^",
+        #          "max" if maximizing_player else "min",
+        #          alpha, beta,
+        #          depth, game.to_string())
 
         if self.time_left() < self.threshold:
             raise Timeout()
@@ -326,7 +360,7 @@ class CustomPlayer:
             return self.score(game, self), None
 
         best = float("-inf") if maximizing_player  else float("inf")
-        #bestmove = (-1, -1)
+        bestmove = (-1, -1)
         bestof = max if maximizing_player else min
         ply = []
         for move in game.get_legal_moves():
@@ -335,7 +369,7 @@ class CustomPlayer:
             ply.append((value, move))
             best = bestof([value, best])
             if best == value:
-                #bestmove = move
+                bestmove = move
                 if maximizing_player:
                     alpha = bestof(alpha, best)
                     if best >= beta:
@@ -344,8 +378,7 @@ class CustomPlayer:
                     beta = bestof(beta, best)
                     if best <= alpha:
                         break
-        equivalents = [m for m in ply if m[0] == best]
-        return equivalents[randint(0, len(equivalents) - 1)]
+        #equivalents = [m for m in ply if m[0] == best]
         #return equivalents[randint(0, len(equivalents) - 1)]
-        #return best, bestmove
+        return best, bestmove
 #pylint: enable-msg=too-many-arguments

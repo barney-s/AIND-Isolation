@@ -52,6 +52,7 @@ class Board(object):
         self.__board_state__ = [[Board.BLANK for i in range(width)] for j in range(height)]
         self.__last_player_move__ = {player_1: Board.NOT_MOVED, player_2: Board.NOT_MOVED}
         self.__player_symbols__ = {Board.BLANK: Board.BLANK, player_1: 1, player_2: 2}
+        self.__history__ = []
 
     @property
     def active_player(self):
@@ -100,6 +101,7 @@ class Board(object):
         new_board.__last_player_move__ = copy(self.__last_player_move__)
         new_board.__player_symbols__ = copy(self.__player_symbols__)
         new_board.__board_state__ = deepcopy(self.__board_state__)
+        new_board.__history__ = copy(self.__history__)
         return new_board
 
     def forecast_move(self, move):
@@ -202,8 +204,9 @@ class Board(object):
         row, col = move
         self.__last_player_move__[self.active_player] = move
         self.__board_state__[row][col] = self.__player_symbols__[self.active_player]
-        self.__active_player__, self.__inactive_player__ = self.__inactive_player__, self.__active_player__
+        self.__history__.append(move)
         self.move_count += 1
+        self.__active_player__, self.__inactive_player__ = self.__inactive_player__, self.__active_player__
 
     def is_winner(self, player):
         """ Test whether the specified player has won the game. """
