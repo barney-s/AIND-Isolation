@@ -34,6 +34,7 @@ from sample_players import open_move_score
 from sample_players import improved_score
 from game_agent import CustomPlayer
 from game_agent import custom_score
+from game_agent import search_depth
 
 NUM_MATCHES = 5  # number of matches against each opponent
 TIME_LIMIT = 150  # number of milliseconds before timeout
@@ -201,3 +202,4 @@ def save_moves(games):
 if __name__ == "__main__":
     main()
     save_moves(game_history)
+    print("avg search depth: ", sum(search_depth)/len(search_depth))

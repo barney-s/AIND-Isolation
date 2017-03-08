@@ -18,6 +18,7 @@ LOG.level = logging.DEBUG #ERROR < INFO < DEBUG
 STREAM_HANDLER = logging.StreamHandler(sys.stdout)
 LOG.addHandler(STREAM_HANDLER)
 
+search_depth = []
 
 class Timeout(Exception):
     """Subclass base exception for code clarity."""
@@ -223,10 +224,10 @@ class CustomPlayer:
 
         def _move(depth):
             if self.method == 'minimax':
-                _, move = self.minimax(game, depth)
+                score, move = self.minimax(game, depth)
             else:
-                _, move = self.alphabeta(game, depth)
-            return move
+                score, move = self.alphabeta(game, depth)
+            return score, move
 
         #LOG.debug("get_move: \n%s\n%s", game.to_string(), legal_moves)
         self.time_left = time_left
@@ -247,17 +248,21 @@ class CustomPlayer:
         try:
             if self.iterative:
                 while True:
-                    move = _move(depth)
+                    score, move = _move(depth)
                     #LOG.debug("iterative deepening %d move: %s", depth, move)
+                    if score in [float("inf"), float("-inf")]:
+                        break
                     depth += 1
             else:
-                move = _move(self.search_depth)
+                _, move = _move(self.search_depth)
         except Timeout:
             # Handle any actions required at timeout, if necessary
             #LOG.error("Timedout waiting for search result (depth: %d):\n%s",
             #          depth, game.to_string())
             pass
         #LOG.debug("returning move: %s:\n%s", move, game.to_string())
+        if self.iterative:
+            search_depth.append(depth)
         return move
 
     def minimax(self, game, depth, maximizing_player=True):
