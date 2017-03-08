@@ -41,6 +41,7 @@ avg search depth:  6.831578947368421
 
 
 ## Example Run:
+```
 *************************
    Evaluating: Student   
 *************************
@@ -59,7 +60,7 @@ Playing Matches:
 Results:
 ----------
 Student             82.14%
-
+```
 
 ## Reference:
 1. Knight Tour Heuristic: https://support.sas.com/resources/papers/proceedings15/3060-2015.pdf
