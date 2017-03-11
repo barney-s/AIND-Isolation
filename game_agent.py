@@ -261,7 +261,7 @@ class CustomPlayer:
             #          depth, game.to_string())
             pass
         #LOG.debug("returning move: %s:\n%s", move, game.to_string())
-        if self.iterative:
+        if self.iterative and self.score == custom_score:
             search_depth.append(depth)
         return move
 
